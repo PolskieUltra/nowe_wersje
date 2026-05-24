@@ -1043,7 +1043,7 @@ function process(raw, rds) {
     const starts= vp.length;
     const best  = starts ? Math.max(...vp) : 0;
     const avg   = starts ? Math.round((suma/starts)*10)/10 : 0;
-    return {...r, id:idx, pts, suma, starts, best, avg, km:r.km||null, city:r.city||null};
+    return {...r, id:idx, pts, suma, starts, best, avg, km:r.km||null, city:r.city||null, pb:r.pb||null, wins:r.wins||null, assists:r.assists||null, allStarts:r.allStarts||null};
   });
 }
 
@@ -1377,6 +1377,10 @@ function expand(id){
     <div class="m-card"><span class="m-val">${fmt(p.avg)}</span><span class="m-lbl">Śr. pkt / start</span></div>
     <div class="m-card"><span class="m-val">${cons}<small style="font-size:14px;color:#666">%</small></span><span class="m-lbl">Aktywność w lidze</span></div>
     ${p.km?`<div class="m-card"><span class="m-val">${p.km}<small style="font-size:14px;color:#666"> km</small></span><span class="m-lbl">Dystans łączny</span></div>`:''}
+    ${p.pb?`<div class="m-card"><span class="m-val">${p.pb}<small style="font-size:14px;color:#666"> y</small></span><span class="m-lbl">Rekord osobisty</span></div>`:''}
+    ${p.wins!=null?`<div class="m-card"><span class="m-val">${p.wins}</span><span class="m-lbl">Zwycięstwa</span></div>`:''}
+    ${p.assists!=null?`<div class="m-card"><span class="m-val">${p.assists}</span><span class="m-lbl">Asysty</span></div>`:''}
+    ${p.allStarts!=null?`<div class="m-card"><span class="m-val">${p.allStarts}</span><span class="m-lbl">Starty łącznie (wszystkie sezony)</span></div>`:''}
   `;
 
   // Wykres
@@ -1550,9 +1554,13 @@ function parseCSV(csv){
       const v=parseFloat(raw);
       yardy.push(isNaN(v)||raw===''?null:v);
     }
-    const km   = parseFloat((c[20]||'').replace(',','.')) || null;
-    const city = (c[21]||'').trim() || null;
-    newRaw.push({i:imie,n:naz,p:plec,nat,y:yardy,km,city});
+    const km      = parseFloat((c[20]||'').replace(',','.')) || null;
+    const city    = (c[21]||'').trim()  || null;
+    const pb      = parseFloat((c[22]||'').replace(',','.')) || null;
+    const wins    = parseInt(c[23]||'')  || null;
+    const assists = parseInt(c[24]||'')  || null;
+    const allStarts = parseInt(c[25]||'') || null;
+    newRaw.push({i:imie,n:naz,p:plec,nat,y:yardy,km,city,pb,wins,assists,allStarts});
   }
 
   rounds=newRounds;
@@ -1759,9 +1767,9 @@ function downloadCard(){
       [fmt(p.suma)+' pkt','SUMA PUNKTÓW'],[String(p.starts)+'/'+rounds.length,'STARTY W SEZONIE'],[fmt(p.best)+' pkt','NAJLEPSZY WYNIK'],
       [fmt(p.avg)+' pkt','ŚRED. PKT / START'],[cons+'%','UDZIAŁ W LIDZE'],[p.km?fmt(p.km)+' km':'—','ŁĄCZNY DYSTANS'],
     ];
-    const cols=3, rows=2;
-    const sW=(W-48)/cols, sH=90;
-    const sX0=24, sY0=506;
+    const cols=4, rows=2;
+    const sW=(W-40)/cols, sH=80;
+    const sX0=20, sY0=510;
     stats.forEach(([val,lbl],i)=>{
       const col=i%cols, row=Math.floor(i/cols);
       const x=sX0+col*sW, y=sY0+row*sH;
@@ -1771,18 +1779,18 @@ function downloadCard(){
       ctx.strokeStyle='rgba(255,255,255,.07)'; ctx.lineWidth=1;
       roundRect(ctx,x+2,y+2,sW-4,sH-6,4); ctx.stroke();
       // Wartość
-      ctx.font='bold 30px "Barlow Condensed",sans-serif';
+      ctx.font='bold 24px "Barlow Condensed",sans-serif';
       ctx.fillStyle=tier==='other'?'#fff':tColor;
       ctx.textAlign='center';
-      ctx.fillText(val, x+sW/2, y+40);
+      ctx.fillText(val, x+sW/2, y+36);
       // Label
-      ctx.font='500 13px "Barlow Condensed",sans-serif';
+      ctx.font='500 11px "Barlow Condensed",sans-serif';
       ctx.fillStyle='rgba(255,255,255,.4)';
-      ctx.fillText(lbl, x+sW/2, y+62);
+      ctx.fillText(lbl, x+sW/2, y+54);
     });
 
     /* — Dół: miasto + sezon — */
-    const footY=900;
+    const footY=920;
     const footOv=ctx.createLinearGradient(0,footY-40,0,H);
     footOv.addColorStop(0,'rgba(0,0,0,0)'); footOv.addColorStop(1,'rgba(0,0,0,.65)');
     ctx.fillStyle=footOv; ctx.fillRect(0,footY-40,W,H-(footY-40));
