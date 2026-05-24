@@ -1705,11 +1705,11 @@ function downloadCard(){
   ctx.fillStyle='rgba(255,255,255,.5)';
   ctx.fillText('OVERALL', 26, 112);
 
-  /* — Flaga — */
-  ctx.font='40px sans-serif';
-  ctx.textAlign='right';
-  ctx.fillStyle='#fff';
-  ctx.fillText(flagEmoji(p.nat||''), W-24, 80);
+  /* — Flaga obok OVERALL — */
+  ctx.font='22px sans-serif';
+  ctx.textAlign='left';
+  ctx.fillStyle='rgba(255,255,255,.85)';
+  ctx.fillText(flagEmoji(p.nat||''), 26, 140);
 
   /* — Sylwetka / placeholder (zdjęcia nie ładujemy cross-origin) — */
   const imgY=120, imgH=280;
@@ -1756,8 +1756,8 @@ function downloadCard(){
     /* — Statystyki — */
     const cons = Math.round(p.starts/rounds.length*100);
     const stats = [
-      [fmt(p.suma),'SUMA PKT'],[String(p.starts),'STARTY'],[fmt(p.best),'MAX RUNDA'],
-      [fmt(p.avg),'ŚREDNIA'],[cons+'%','AKTYWNOŚĆ'],[p.km?fmt(p.km)+' km':'—','DYSTANS'],
+      [fmt(p.suma)+' pkt','SUMA PUNKTÓW'],[String(p.starts)+'/'+rounds.length,'STARTY W SEZONIE'],[fmt(p.best)+' pkt','NAJLEPSZY WYNIK'],
+      [fmt(p.avg)+' pkt','ŚRED. PKT / START'],[cons+'%','UDZIAŁ W LIDZE'],[p.km?fmt(p.km)+' km':'—','ŁĄCZNY DYSTANS'],
     ];
     const cols=3, rows=2;
     const sW=(W-48)/cols, sH=90;
@@ -1771,10 +1771,10 @@ function downloadCard(){
       ctx.strokeStyle='rgba(255,255,255,.07)'; ctx.lineWidth=1;
       roundRect(ctx,x+2,y+2,sW-4,sH-6,4); ctx.stroke();
       // Wartość
-      ctx.font='bold 36px "Barlow Condensed",sans-serif';
+      ctx.font='bold 30px "Barlow Condensed",sans-serif';
       ctx.fillStyle=tier==='other'?'#fff':tColor;
       ctx.textAlign='center';
-      ctx.fillText(val, x+sW/2, y+42);
+      ctx.fillText(val, x+sW/2, y+40);
       // Label
       ctx.font='500 13px "Barlow Condensed",sans-serif';
       ctx.fillStyle='rgba(255,255,255,.4)';
