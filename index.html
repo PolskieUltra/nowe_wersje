@@ -1597,6 +1597,252 @@ async function fetchSheet() {
 fetchSheet();
 setInterval(fetchSheet, REFRESH_MS);
 
+
+/* ══════════════════════════════════════════════════════════
+   PLAYER CARD — Canvas render, działa lokalnie i na HTTPS
+   ══════════════════════════════════════════════════════════ */
+function handleCardOverlay(e){
+  if(e.target===document.getElementById('cardModal')) closeCardModal();
+}
+function closeCardModal(){
+  document.getElementById('cardModal').classList.remove('open');
+  document.body.style.overflow='';
+}
+
+function openCardModal(){
+  const p = window._modalPlayer;
+  if(!p) return;
+  closeModal();
+  const allSorted = sorted(players);
+  const rank = allSorted.findIndex(x=>x.id===p.id)+1;
+  window._cardPlayer = p;
+  window._cardRank   = rank;
+
+  const tier = rank===1?'gold':rank===2?'silver':rank===3?'bronze':'other';
+  document.getElementById('cardBg').className      = 'card-bg '     + tier;
+  document.getElementById('cardBorderEl').className= 'card-border ' + tier;
+  document.getElementById('cardDivider').className = 'card-divider '+ tier;
+  const rankEl = document.getElementById('cardRank');
+  rankEl.textContent = '#'+rank;
+  rankEl.className = 'card-rank '+tier;
+  document.getElementById('cardNat').textContent = flagEmoji(p.nat||'');
+  document.getElementById('cardPhoto').innerHTML  = getPlayerPhoto(p);
+  document.getElementById('cardSurname').textContent   = p.n.toUpperCase();
+  document.getElementById('cardFirstname').textContent = p.i.toUpperCase();
+  const cons = Math.round(p.starts/rounds.length*100);
+  const stats = [
+    [fmt(p.suma),'SUMA PKT'],[p.starts,'STARTY'],[fmt(p.best),'MAX RUNDA'],
+    [fmt(p.avg),'ŚREDNIA'],[cons+'%','AKTYWNOŚĆ'],[p.km?fmt(p.km)+' km':'—','DYSTANS'],
+  ];
+  const vc = tier==='other'?'':tier;
+  document.getElementById('cardStats').innerHTML = stats.map(([v,l])=>
+    `<div class="card-stat"><span class="card-stat-val ${vc}">${v}</span><span class="card-stat-lbl">${l}</span></div>`
+  ).join('');
+  document.getElementById('cardCity').textContent = p.city||'';
+  document.getElementById('cardModal').classList.add('open');
+  document.body.style.overflow='hidden';
+}
+
+/* ── Canvas download ─────────────────────────────────────── */
+function downloadCard(){
+  const p    = window._cardPlayer;
+  const rank = window._cardRank||0;
+  if(!p) return;
+
+  const W=640, H=960, S=2;
+  const canvas = document.createElement('canvas');
+  canvas.width  = W*S;
+  canvas.height = H*S;
+  const ctx = canvas.getContext('2d');
+  ctx.scale(S, S);
+
+  const tier  = rank===1?'gold':rank===2?'silver':rank===3?'bronze':'other';
+  const tColor= rank===1?'#f0b429':rank===2?'#a8b3c0':rank===3?'#c07b3b':'#d92b2b';
+
+  /* — Tło gradient — */
+  const bgGrad = {
+    gold:  ['#1a1000','#3d2800','#5a3800','#3d2800','#1a1000'],
+    silver:['#0a0a10','#1a1a28','#2a2a40','#1a1a28','#0a0a10'],
+    bronze:['#100800','#281800','#401800','#281800','#100800'],
+    other: ['#1a0800','#2d1200','#1a0800','#0d0800','#0d0800'],
+  }[tier];
+  const bg = ctx.createLinearGradient(0,0,W*.6,H);
+  bg.addColorStop(0,   bgGrad[0]);
+  bg.addColorStop(0.25,bgGrad[1]);
+  bg.addColorStop(0.5, bgGrad[2]);
+  bg.addColorStop(0.75,bgGrad[3]);
+  bg.addColorStop(1,   bgGrad[4]);
+  roundRect(ctx,0,0,W,H,12);
+  ctx.fillStyle=bg; ctx.fill();
+
+  /* — Shine — */
+  const shine = ctx.createLinearGradient(0,0,W,H);
+  shine.addColorStop(0,   'rgba(255,255,255,0)');
+  shine.addColorStop(0.45,'rgba(255,255,255,.05)');
+  shine.addColorStop(0.5, 'rgba(255,255,255,.1)');
+  shine.addColorStop(0.55,'rgba(255,255,255,.05)');
+  shine.addColorStop(1,   'rgba(255,255,255,0)');
+  roundRect(ctx,0,0,W,H,12);
+  ctx.fillStyle=shine; ctx.fill();
+
+  /* — Obramowanie — */
+  ctx.strokeStyle=tColor+'88'; ctx.lineWidth=2;
+  roundRect(ctx,1,1,W-2,H-2,12); ctx.stroke();
+
+  /* — Top dark overlay — */
+  const topOv = ctx.createLinearGradient(0,0,0,130);
+  topOv.addColorStop(0,'rgba(0,0,0,.65)'); topOv.addColorStop(1,'rgba(0,0,0,0)');
+  ctx.fillStyle=topOv; ctx.fillRect(0,0,W,130);
+
+  /* — Rank — */
+  ctx.font='bold 80px "Barlow Condensed",sans-serif';
+  ctx.fillStyle=tColor;
+  ctx.textAlign='left';
+  ctx.shadowColor='rgba(0,0,0,.8)'; ctx.shadowBlur=12;
+  ctx.fillText('#'+rank, 24, 90);
+  ctx.shadowBlur=0;
+  ctx.font='600 18px "Barlow Condensed",sans-serif';
+  ctx.fillStyle='rgba(255,255,255,.5)';
+  ctx.fillText('OVERALL', 26, 112);
+
+  /* — Flaga — */
+  ctx.font='40px sans-serif';
+  ctx.textAlign='right';
+  ctx.fillStyle='#fff';
+  ctx.fillText(flagEmoji(p.nat||''), W-24, 80);
+
+  /* — Sylwetka / placeholder (zdjęcia nie ładujemy cross-origin) — */
+  const imgY=120, imgH=280;
+  // Gradient pod sylwetką
+  const photoOv = ctx.createLinearGradient(0,imgY,0,imgY+imgH);
+  photoOv.addColorStop(0,'rgba(0,0,0,.1)'); photoOv.addColorStop(1,'rgba(0,0,0,.7)');
+  // Sylwetka SVG jako image
+  const svgStr = `<svg xmlns='http://www.w3.org/2000/svg' width='220' height='280' viewBox='0 0 220 280'>
+    <circle cx='110' cy='80' r='52' fill='rgba(255,255,255,.15)'/>
+    <ellipse cx='110' cy='240' rx='90' ry='70' fill='rgba(255,255,255,.12)'/>
+  </svg>`;
+  const img = new Image();
+  img.src = 'data:image/svg+xml;base64,' + btoa(svgStr);
+  const PLAYER_PHOTOS_LOCAL = window.PLAYER_PHOTOS||{};
+  const photoUrl = PLAYER_PHOTOS_LOCAL[p.n+' '+p.i];
+
+  function drawRest(){
+    // Overlay na foto
+    const midOv = ctx.createLinearGradient(0,imgY+imgH-80,0,imgY+imgH);
+    midOv.addColorStop(0,'rgba(0,0,0,0)'); midOv.addColorStop(1,'rgba(0,0,0,.85)');
+    ctx.fillStyle=midOv; ctx.fillRect(0,imgY+imgH-80,W,80+20);
+
+    /* — Linia dekoracyjna — */
+    const lineY=490;
+    const lineG = ctx.createLinearGradient(0,0,W,0);
+    lineG.addColorStop(0,'rgba(0,0,0,0)');
+    lineG.addColorStop(0.3,tColor+'bb');
+    lineG.addColorStop(0.7,tColor+'bb');
+    lineG.addColorStop(1,'rgba(0,0,0,0)');
+    ctx.fillStyle=lineG; ctx.fillRect(24,lineY,W-48,1.5);
+
+    /* — Nazwisko / Imię — */
+    ctx.textAlign='center';
+    ctx.font='bold 52px "Barlow Condensed",sans-serif';
+    ctx.fillStyle='#ffffff';
+    ctx.shadowColor='rgba(0,0,0,.9)'; ctx.shadowBlur=16;
+    ctx.fillText(p.n.toUpperCase(), W/2, 448);
+    ctx.shadowBlur=0;
+    ctx.font='500 22px "Barlow Condensed",sans-serif';
+    ctx.fillStyle='rgba(255,255,255,.55)';
+    ctx.letterSpacing='3px';
+    ctx.fillText(p.i.toUpperCase(), W/2, 476);
+
+    /* — Statystyki — */
+    const cons = Math.round(p.starts/rounds.length*100);
+    const stats = [
+      [fmt(p.suma),'SUMA PKT'],[String(p.starts),'STARTY'],[fmt(p.best),'MAX RUNDA'],
+      [fmt(p.avg),'ŚREDNIA'],[cons+'%','AKTYWNOŚĆ'],[p.km?fmt(p.km)+' km':'—','DYSTANS'],
+    ];
+    const cols=3, rows=2;
+    const sW=(W-48)/cols, sH=90;
+    const sX0=24, sY0=506;
+    stats.forEach(([val,lbl],i)=>{
+      const col=i%cols, row=Math.floor(i/cols);
+      const x=sX0+col*sW, y=sY0+row*sH;
+      // Tło karty stat
+      ctx.fillStyle='rgba(0,0,0,.35)';
+      roundRect(ctx,x+2,y+2,sW-4,sH-6,4); ctx.fill();
+      ctx.strokeStyle='rgba(255,255,255,.07)'; ctx.lineWidth=1;
+      roundRect(ctx,x+2,y+2,sW-4,sH-6,4); ctx.stroke();
+      // Wartość
+      ctx.font='bold 36px "Barlow Condensed",sans-serif';
+      ctx.fillStyle=tier==='other'?'#fff':tColor;
+      ctx.textAlign='center';
+      ctx.fillText(val, x+sW/2, y+42);
+      // Label
+      ctx.font='500 13px "Barlow Condensed",sans-serif';
+      ctx.fillStyle='rgba(255,255,255,.4)';
+      ctx.fillText(lbl, x+sW/2, y+62);
+    });
+
+    /* — Dół: miasto + sezon — */
+    const footY=900;
+    const footOv=ctx.createLinearGradient(0,footY-40,0,H);
+    footOv.addColorStop(0,'rgba(0,0,0,0)'); footOv.addColorStop(1,'rgba(0,0,0,.65)');
+    ctx.fillStyle=footOv; ctx.fillRect(0,footY-40,W,H-(footY-40));
+    ctx.font='500 18px "Barlow Condensed",sans-serif';
+    ctx.fillStyle='rgba(255,255,255,.45)';
+    ctx.textAlign='left';
+    ctx.fillText((p.city||'').toUpperCase(), 24, footY);
+    ctx.textAlign='right';
+    ctx.fillStyle='rgba(255,255,255,.3)';
+    ctx.fillText('PBUL · 2026', W-24, footY);
+
+    /* — Pobierz — */
+    const link=document.createElement('a');
+    link.download='PBUL_2026_'+p.n+'_'+p.i+'.png';
+    link.href=canvas.toDataURL('image/png');
+    link.click();
+  }
+
+  // Spróbuj załadować zdjęcie jeśli jest
+  if(photoUrl){
+    const pImg=new Image();
+    pImg.crossOrigin='anonymous';
+    pImg.onload=()=>{
+      ctx.save();
+      ctx.beginPath();
+      ctx.ellipse(W/2,imgY+imgH*.45,100,130,0,0,Math.PI*2);
+      ctx.clip();
+      ctx.drawImage(pImg, W/2-100, imgY, 200, 260);
+      ctx.restore();
+      drawRest();
+    };
+    pImg.onerror=()=>{ drawSilhouetteAndRest(); };
+    pImg.src=photoUrl;
+  } else {
+    drawSilhouetteAndRest();
+  }
+
+  function drawSilhouetteAndRest(){
+    img.onload=()=>{
+      ctx.drawImage(img, W/2-110, imgY, 220, 280);
+      drawRest();
+    };
+    img.onerror=drawRest;
+    if(img.complete) { ctx.drawImage(img,W/2-110,imgY,220,280); drawRest(); }
+  }
+}
+
+function roundRect(ctx,x,y,w,h,r){
+  ctx.beginPath();
+  ctx.moveTo(x+r,y);
+  ctx.lineTo(x+w-r,y);
+  ctx.quadraticCurveTo(x+w,y,x+w,y+r);
+  ctx.lineTo(x+w,y+h-r);
+  ctx.quadraticCurveTo(x+w,y+h,x+w-r,y+h);
+  ctx.lineTo(x+r,y+h);
+  ctx.quadraticCurveTo(x,y+h,x,y+h-r);
+  ctx.lineTo(x,y+r);
+  ctx.quadraticCurveTo(x,y,x+r,y);
+  ctx.closePath();
+}
 </script>
 
 <div id="modalOverlay" onclick="handleOverlayClick(event)">
